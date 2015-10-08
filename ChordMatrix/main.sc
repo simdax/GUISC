@@ -10,37 +10,70 @@ TODO
 
 2. harmoniser selon d'autres règles
 
-3. rendre automatique le changement, sans repasser par un appel de init
-
 */
 
 
 ChordMatrix{
 
-	var <pattern;
+	var <name, <pattern;
 	var fenetre, fenMatrice, fenBoutons;
 	var <sliders, <boutons,
 	<>couleurs, <>basses;
+	var pdef;
 
 	*new{
-		arg pattern=#[0,0];
-		^super.newCopyArgs(pattern).init.draw
+		arg name="test", pattern=#[0,0];
+		^super.newCopyArgs(name, pattern).init.draw
 	}
 
 	init{
-		fenetre=Window();
+
+		// les fenetres
+		fenetre=Window(name, 500@500);
 		fenetre.addFlowLayout;
 		fenMatrice=CompositeView(fenetre, fenetre.bounds.width*1.25 @ fenetre.bounds.height*0.8)
 		.background_(Color.rand);
-		fenBoutons=CompositeView(fenetre, fenetre.bounds.width @ fenetre.bounds.height*0.15)
+		fenBoutons=CompositeView(fenetre, fenetre.bounds.width @ fenetre.bounds.width*1)
 		.background_(Color.rand);
 		fenMatrice.addFlowLayout;
+		fenBoutons.addFlowLayout;
+
+		// les boutons simples
+		Button(fenBoutons, 50@50)
+		.states_([
+			["harmoniser"]
+		])
+		.action_({
+			this.harmoniser
+		});
+
+		EZSlider(fenBoutons, 200@30, "nb accords",
+			ControlSpec(2, 8, step:1), {
+				arg self;
+				this.pattern=0 ! self.value
+			},
+			this.pattern.size
+		);
+
+		//les pdefs
+		pdef=Pdef(name.asSymbol,
+			Pbind(
+				Ppar([
+					Pbind(
+						\degree, Pseq(this.basses)
+					),
+					Pbind(
+						\degree, Pseq(this.couleurs)
+					)
+				])
+			)
+		);
 	}
 
 	pattern_{
 		arg pat;
+		pattern=pat;
 		this.draw;
-		^pattern=pat;
 	}
 
 	draw{
@@ -51,9 +84,9 @@ ChordMatrix{
 		var largeurPrincipale= fenMatrice.bounds.width;
 		var hauteurPrincipale= fenMatrice.bounds.height;
 		var tailleBoutons=(
-					( (largeurPrincipale)  / (tailleMelodie+1) / 2 )
-					@
-					(hauteurPrincipale/8)
+			( (largeurPrincipale)  / (tailleMelodie+1) / 2.3 )
+			@
+			(hauteurPrincipale/8)
 		) ;
 
 		/// fonction pour drawer les sliders
@@ -76,6 +109,7 @@ ChordMatrix{
 		fenMatrice.removeAll;
 		fenMatrice.decorator.reset;
 
+
 		boutons=boutons.collect({ |i|
 			var x;
 
@@ -89,17 +123,16 @@ ChordMatrix{
 				[
 					Button(fenMatrice, tailleBoutons)
 					.states_([
-						['0', Color.green, Color.yellow],
-						['5', Color.yellow, Color.red],
-						['6', Color.yellow, Color.red],
-						['7', Color.yellow, Color.red]
+						['5', Color.green, Color.blue],
+						['6', Color.yellow, Color.yellow],
+						['7', Color.yellow, Color.orange],
+						['9', Color.yellow, Color.red],
+						['11', Color.yellow, Color.purple],
 					])
-					.action_({
-						// this.draw;
-					})
 					,
 					Slider(fenMatrice, tailleBoutons)
 					.orientation_(\vertical)
+					.fixedWidth_(20)
 				]
 			});
 			fenMatrice.decorator.nextLine;
@@ -133,26 +166,18 @@ ChordMatrix{
 		});
 
 
-		Button(fenBoutons, 50@50)
-		.states_([
-			["harmoniser"]
-		])
-		.action_({
-			this.harmoniser
-		});
-
 	}
 
 
 	reinit { | value=0|
-			// on remet les boutons à 0
-			boutons.deepCollect(2, { |i|
-				i.value_(value)
-			});
-			// on remet les sliders à 0
-			sliders.deepCollect(2, { |i|
-				i.value_(0)
-			})
+		// on remet les boutons à 0
+		boutons.deepCollect(2, { |i|
+			i.value_(value)
+		});
+		// on remet les sliders à 0
+		sliders.deepCollect(2, { |i|
+			i.value_(0)
+		})
 	}
 
 
@@ -218,6 +243,7 @@ ChordMatrix{
 	}
 
 	front{
+		fenetre.front;
 		^fenetre.visible;
 	}
 	quit{
