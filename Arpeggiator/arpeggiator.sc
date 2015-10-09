@@ -1,16 +1,18 @@
 /*
 (
+//init basique
+
 s.boot;
 a=Arpeggiator("test");
 a.front;
 
+// mettre dans une nouvelle fenêtre
+a.newWindow
+w=Window().front
+a.newWindow(w)
 
 Pdefn(\formuleAcc).source.list.postcs;
 Pdef(\test).trace.play
-w=
-a=Arpeggiator("test").front;
-w=Window().front
-a.fenetre.asView.setParents(w)
 )
 
 */
@@ -19,7 +21,7 @@ a.fenetre.asView.setParents(w)
 Arpeggiator
 {
 
-	var name, <>fenetre, grille;
+	var name, <>fenetre, grille, titre;
 
 	*new{
 		arg name, fenetre=Window(), grille=#[[0, 2, 4]];
@@ -28,6 +30,10 @@ Arpeggiator
 
 	init{
 		//
+		var arg_passe // ça c'est un petit trick pour l'elegance'
+
+
+
 		var msv, slider;
 		var ancienIndex=0;
 		var valueMSV= 4 !4;
@@ -36,6 +42,8 @@ Arpeggiator
 		var		layout=
 		VLayout
 		(
+			titre=StaticText()
+			.string_(grille.asString),
 			HLayout(
 				msv=MultiSliderView()
 				.elasticMode_(true)
@@ -60,13 +68,13 @@ Arpeggiator
 						{valueMSV=valueMSV.add(4)}
 						.while(val>valueMSV.size)
 					}
-					{t b
+					{
 						if (val < valueMSV.size)
-							{
-							{valueMSV=tvalueMSV.drop(-1)}
+						{
+							{valueMSV=valueMSV.drop(-1)}
 							.while(val<valueMSV.size)
-							}
-							{}
+						}
+						{}
 					};
 					msv.valueAction_(valueMSV);
 				}
@@ -110,7 +118,9 @@ Arpeggiator
 					0, {
 						Pdef(name.asSymbol).stop;
 						msv.showIndex_(false);
-						t2.clear; t2.stop;
+						t2.stop;
+						t2.clear.postln;
+						t2.postln;
 					},
 				)
 			}
@@ -160,8 +170,17 @@ Arpeggiator
 	}
 
 	newWindow{
-		arg niouFen=Window("copie");
-		this.fenetre=niouFen
+		arg niouFen=(arg_passe=false; Window("copie"));
+		if(arg_passe),
+		{
+			fenetre=CompositeView(niouFen);
+			this.init;
+		}
+		{
+			this.fenetre=niouFen;
+			this.init.front;
+		},
+
 	}
 
 	front{
