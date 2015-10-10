@@ -3,8 +3,16 @@
 //init basique
 
 s.boot;
-a=Arpeggiator("test");
+a=Arpeggiator(\test);
 a.front;
+
+Arpeggiator.t.stop
+Pdef(\test).stop
+Pdefn(\grille).source.postcs
+Pdefn(\formuleAcc).source.postcs
+		Pdefn(\root, 0);
+		Pdefn(\amp, 0.82);
+
 
 // mettre dans une nouvelle fenêtre
 a.newWindow
@@ -21,7 +29,8 @@ Pdef(\test).trace.play
 Arpeggiator
 {
 
-	var name, <>fenetre, grille, titre;
+	var <name, <>fenetre, <grille;
+	var arg_passe; // ça c'est un petit trick pour l'elegance'
 
 	*new{
 		arg name, fenetre=Window(), grille=#[[0, 2, 4]];
@@ -30,32 +39,60 @@ Arpeggiator
 
 	init{
 		//
-		var arg_passe // ça c'est un petit trick pour l'elegance'
-
 
 
 		var msv, slider;
-		var ancienIndex=0;
 		var valueMSV= 4 !4;
 		var lastValSlider=0.1;
+		var ctlSpecMSV=ControlSpec(0, 10, 'lin', 1);
+		var t=TempoClock((1/valueMSV).reciprocal);
+		var index=(-1);
+		var pdefPlaying;
+
+
+
+		var daemon=TempoClock.play({
+
+			valueMSV.postln;
+			index.postln;
+			1;
+
+		});
+
 
 		var		layout=
 		VLayout
 		(
-			titre=StaticText()
-			.string_(grille.asString),
+			HLayout(
+				StaticText()
+				.string_(grille.asString),
+/*				StaticText()
+				.string_(valueMSV)*/
+			),
 			HLayout(
 				msv=MultiSliderView()
 				.elasticMode_(true)
 				.showIndex_(false)
+				.step_(1/ctlSpecMSV.maxval)
 				.value_(0.5 ! 4)
 				.action_{
 					arg self;
-					var a=ControlSpec(
-						0, 8, 'lin', 1)
+					var selfVal=ctlSpecMSV
 					.map(self.value);
-					valueMSV[self.index]=a[self.index];
-				},
+					if(self.index >= valueMSV.size)
+					{}
+					{
+						valueMSV[self.index]=selfVal[self.index];
+					};
+				}
+				.mouseDownAction_({
+					arg self;
+					self.showIndex_(false)
+				})
+				.mouseUpAction_({
+					arg self;
+					self.showIndex_(true)
+				}),
 				slider=Slider()
 				.value_(lastValSlider)
 				.orientation_(\vertical)
@@ -65,18 +102,19 @@ Arpeggiator
 					.map(self.value);
 					if (val > valueMSV.size)
 					{
+						while{val>(valueMSV.size)}
 						{valueMSV=valueMSV.add(4)}
-						.while(val>valueMSV.size)
 					}
 					{
-						if (val < valueMSV.size)
+						if (val < (valueMSV.size))
 						{
+							while
+							{val<(valueMSV.size)}
 							{valueMSV=valueMSV.drop(-1)}
-							.while(val<valueMSV.size)
 						}
 						{}
 					};
-					msv.valueAction_(valueMSV);
+					msv.valueAction_(ctlSpecMSV.unmap(valueMSV));
 				}
 			),
 			Button()
@@ -86,41 +124,38 @@ Arpeggiator
 			])
 			.action_{
 				arg self;
-				var t2;
+
 				switch(self.value,
 					1, {
-						msv.showIndex_(true);
-						t2=TempoClock(2);
-						t2.play({
-							var index, beats;
-							beats=t2.beats.ceil;
-							index=beats%valueMSV.size;
+						r{
+							{
+								msv.showIndex_(true);
+							}.defer(0);
 
-							if(index != (ancienIndex+1) and:
-								index !=0
-							)
-							{"normal".postln;
-								index=ancienIndex+1};
-							if(index >= valueMSV.size)
-							{"swap".postln;
-								index=0};
+							inf.do{
 
-							AppClock.sched(0,
+								index=index+1;
+								if(index >= (valueMSV.size))
 								{
-									msv.index_(index)
-								}
-							);
-							ancienIndex=index;
-							1;
-						});
-						Pdef(name.asSymbol).play(t2, quant:1);
+									"swap".postln;
+									index=0
+								};
+								AppClock.sched(0,
+									{
+										("index"+index).postln;
+										msv.index_(index);
+									}
+								);
+								1.wait;}
+						}.play(t, quant:1);
+
+						 pdefPlaying=Pdef(name.asSymbol).play(t, quant:1);
 					},
 					0, {
-						Pdef(name.asSymbol).stop;
+						pdefPlaying.stop;
 						msv.showIndex_(false);
-						t2.stop;
-						t2.clear.postln;
-						t2.postln;
+						t.clear;
+						index=(-1)
 					},
 				)
 			}
@@ -133,16 +168,17 @@ Arpeggiator
 			Pseq(grille, inf)
 		);
 		Pdefn(\formuleAcc,
-			Pseq(valueMSV, inf)
+			Pn(	Plazy
+				(
+					{valueMSV[index]})
+			)
 		);
-
 		Pdefn(\forme, Pseq([
 			( 4 ! 4 ) ! 4
 		].flat)
 		);
 		Pdefn(\root, 0);
 		Pdefn(\amp, 0.82);
-
 
 		Pdef(name.asSymbol,
 			Pbind(
@@ -159,7 +195,7 @@ Arpeggiator
 				\degree, Pfunc({ |ev|
 					var accord=ev.grille;
 					var index=ev.arpeggiator %3;
-					accord.at(index);
+					accord@index;
 				}),
 
 				\dur, 1,
@@ -171,7 +207,7 @@ Arpeggiator
 
 	newWindow{
 		arg niouFen=(arg_passe=false; Window("copie"));
-		if(arg_passe),
+		if(arg_passe)
 		{
 			fenetre=CompositeView(niouFen);
 			this.init;
@@ -179,19 +215,23 @@ Arpeggiator
 		{
 			this.fenetre=niouFen;
 			this.init.front;
-		},
+		}
 
 	}
 
 	front{
+
 		if(fenetre.class==Window)
 		{fenetre.front;
 			^fenetre.visible}
 		{
 			("votre fenetre étant une : ")+fenetre.class+
 			("elle n'a pas de méthode front")
-		}
+		};
+
+
 	}
 
 }
+
 
